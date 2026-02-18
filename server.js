@@ -4,41 +4,54 @@ import { Server } from "socket.io";
 import cors from "cors";
 
 const app = express();
-app.use(cors());
+
+// 1. Configuramos los orígenes permitidos
+// Incluimos localhost para desarrollo y tu URL de Railway para producción
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://previweb-production.up.railway.app"
+];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
 
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000", // El puerto de tu Next.js
-    methods: ["GET", "POST"]
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
 io.on("connection", (socket) => {
-  console.log("🟢 Cliente conectado:", socket.id);
+  console.log(`🟢 Cliente conectado: ${socket.id}`);
 
-  // 1. Escuchar cuando se actualiza un pedido individual (confirmación/bloqueo)
+  // Evento para cambios individuales (Registro, Bloqueo, Anulación)
   socket.on("pedido-actualizado", (data) => {
-    console.log("📦 Pedido actualizado:", data);
-    // Usamos io.emit para que TODOS (incluido el que lo envió) estén sincronizados
+    console.log("📦 Cambio en pedido:", data);
+    // Notificamos a todos los clientes que deben refrescar sus listas
     io.emit("actualizar-lista", data);
   });
 
-  // 2. AGREGAR ESTO: Escuchar cuando se carga el Excel
+  // Evento para actualizaciones masivas (Excel)
   socket.on("actualizar-lista", (data) => {
-    console.log("📊 Excel cargado, notificando a todos...");
-    // Notifica a todos los clientes que deben ejecutar fetchAllPedidos()
+    console.log("📊 Actualización masiva recibida:", data);
     io.emit("actualizar-lista", data);
   });
 
   socket.on("disconnect", () => {
-    console.log("🔴 Cliente desconectado:", socket.id);
+    console.log(`🔴 Cliente desconectado: ${socket.id}`);
   });
 });
 
+// Railway detectará este puerto automáticamente
 const PORT = process.env.PORT || 3001;
 
 server.listen(PORT, () => {
-  console.log(`🚀 Socket server escuchando en puerto ${PORT}`);
+  console.log(`🚀 Servidor de Sockets corriendo en el puerto ${PORT}`);
+  console.log(`✅ Permitiendo conexiones desde: ${allowedOrigins.join(", ")}`);
 });
